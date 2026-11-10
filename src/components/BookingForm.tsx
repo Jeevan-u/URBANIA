@@ -1,6 +1,6 @@
 import { useState, useRef } from "react";
 import { motion, useInView } from "framer-motion";
-import { CalendarIcon, Car, Users, MapPin, Send } from "lucide-react";
+import { CalendarIcon, Car, Clock, Users, MapPin, Send } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
@@ -19,18 +19,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-const destinations = [
-  "Mysore & Coorg",
-  "Ooty & Kodaikanal",
-  "Wayanad Weekend",
-  "Hampi Heritage",
-  "Tirupati Balaji",
-  "Srisailam Jyothirlinga",
-  "Yadagirigutta Temple",
-  "Hyderabad City Tour",
-  "Goa Beach Trip",
-  "Custom Destination",
-];
+const services = ["Outstation", "Local", "Airport", "Corporate"];
 
 const vehicles = [
   { value: "swift-dzire", label: "Swift Dzire (4 Seater)", icon: "🚗" },
@@ -41,15 +30,42 @@ const vehicles = [
   { value: "luxury-bus", label: "Luxury Bus (40+ Seater)", icon: "🚌" },
 ];
 
+const BOOKING_SEQ_KEY = "urbania_booking_seq";
+const BOOKING_SEQ_START = 1355;
+
+/** Returns the next enquiry ID in the SKY-00001355 format. */
+const nextBookingId = () => {
+  let seq = BOOKING_SEQ_START;
+  try {
+    const stored = Number(localStorage.getItem(BOOKING_SEQ_KEY));
+    if (Number.isFinite(stored) && stored >= BOOKING_SEQ_START) seq = stored;
+    localStorage.setItem(BOOKING_SEQ_KEY, String(seq + 1));
+  } catch {
+    // localStorage unavailable — fall back to the starting sequence
+  }
+  return `SKY-${String(seq).padStart(8, "0")}`;
+};
+
+/** Converts a 24-hour "HH:mm" input into "hh:mm AM/PM". */
+const formatTime = (time: string) => {
+  const [hours, minutes] = time.split(":").map(Number);
+  if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return "";
+  const suffix = hours >= 12 ? "PM" : "AM";
+  const hour12 = hours % 12 || 12;
+  return `${String(hour12).padStart(2, "0")}:${String(minutes).padStart(2, "0")} ${suffix}`;
+};
+
 const BookingForm = () => {
   const [form, setForm] = useState({
     customer_name: "",
     customer_phone: "",
     customer_email: "",
-    destination: "",
+    service: "",
+    pickup_city: "",
+    drop_city: "",
+    pickup_time: "",
     vehicle_type: "",
     passengers: "1",
-    pickup_location: "",
     special_requests: "",
   });
   const [travelDate, setTravelDate] = useState<Date>();
@@ -64,25 +80,41 @@ const BookingForm = () => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!form.customer_name.trim() || !form.customer_phone.trim() || !form.destination) {
+    if (
+      !form.customer_name.trim() ||
+      !form.customer_phone.trim() ||
+      !form.service ||
+      !form.pickup_city.trim() ||
+      !form.drop_city.trim() ||
+      !travelDate ||
+      !form.pickup_time
+    ) {
       toast({ title: "Missing fields", description: "Please fill in all required fields.", variant: "destructive" });
       return;
     }
 
+    const bookingId = nextBookingId();
     const text = encodeURIComponent(
-      `🚗 New Booking Request\nName: ${form.customer_name.trim()}\nPhone: ${form.customer_phone.trim()}\nDestination: ${form.destination}\nDate: ${travelDate ? format(travelDate, "PPP") : "Flexible"}\nVehicle: ${form.vehicle_type || "Any"}\nPassengers: ${form.passengers}\nPickup: ${form.pickup_location || "TBD"}\nNotes: ${form.special_requests || "None"}`
+      `---- ${form.service} New Enquery: ----\n` +
+        `Booking ID: '${bookingId}'\n` +
+        `Phone: '${form.customer_phone.trim()}'\n` +
+        `Service: '${form.service}'\n` +
+        `Pickup City: '${form.pickup_city.trim()}'\n` +
+        `Drop City: '${form.drop_city.trim()}'\n` +
+        `Pickup Date: '${format(travelDate, "yyyy-MM-dd")}'\n` +
+        `Pickup Time: '${formatTime(form.pickup_time)}'`
     );
 
     toast({
       title: "Booking request ready ✅",
-      description: "Send it on WhatsApp and our team will confirm within 30 minutes.",
+      description: `Booking ID ${bookingId}. Send it on WhatsApp and our team will confirm within 30 minutes.`,
     });
     window.open(`https://wa.me/919632345415?text=${text}`, "_blank");
 
     setForm({
       customer_name: "", customer_phone: "", customer_email: "",
-      destination: "", vehicle_type: "", passengers: "1",
-      pickup_location: "", special_requests: "",
+      service: "", pickup_city: "", drop_city: "", pickup_time: "",
+      vehicle_type: "", passengers: "1", special_requests: "",
     });
     setTravelDate(undefined);
   };
@@ -146,7 +178,7 @@ const BookingForm = () => {
             </div>
           </div>
 
-          {/* Row 2: Email & Destination */}
+          {/* Row 2: Email & Service */}
           <div className="grid sm:grid-cols-2 gap-5 mb-5">
             <div>
               <label className="font-body text-xs font-semibold text-foreground mb-1.5 block">
@@ -164,32 +196,66 @@ const BookingForm = () => {
             </div>
             <div>
               <label className="font-body text-xs font-semibold text-foreground mb-1.5 block">
-                <MapPin className="w-3.5 h-3.5 inline mr-1" />
-                Destination *
+                Service *
               </label>
-              <Select value={form.destination} onValueChange={(v) => setForm({ ...form, destination: v })}>
+              <Select value={form.service} onValueChange={(v) => setForm({ ...form, service: v })}>
                 <SelectTrigger className="w-full h-12 rounded-xl border-border bg-muted/50 font-body text-sm">
-                  <SelectValue placeholder="Choose destination" />
+                  <SelectValue placeholder="Select service" />
                 </SelectTrigger>
                 <SelectContent>
-                  {destinations.map((d) => (
-                    <SelectItem key={d} value={d}>{d}</SelectItem>
+                  {services.map((s) => (
+                    <SelectItem key={s} value={s}>{s}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
           </div>
 
-          {/* Row 3: Date, Vehicle, Passengers */}
-          <div className="grid sm:grid-cols-3 gap-5 mb-5">
+          {/* Row 3: Pickup City & Drop City */}
+          <div className="grid sm:grid-cols-2 gap-5 mb-5">
+            <div>
+              <label className="font-body text-xs font-semibold text-foreground mb-1.5 block">
+                <MapPin className="w-3.5 h-3.5 inline mr-1" />
+                Pickup City *
+              </label>
+              <input
+                name="pickup_city"
+                value={form.pickup_city}
+                onChange={handleChange}
+                required
+                maxLength={200}
+                className={inputClass}
+                placeholder="e.g. Kempegowda International Airport (BLR)"
+              />
+            </div>
+            <div>
+              <label className="font-body text-xs font-semibold text-foreground mb-1.5 block">
+                <MapPin className="w-3.5 h-3.5 inline mr-1" />
+                Drop City *
+              </label>
+              <input
+                name="drop_city"
+                value={form.drop_city}
+                onChange={handleChange}
+                required
+                maxLength={200}
+                className={inputClass}
+                placeholder="e.g. Jayanagar, Bengaluru"
+              />
+            </div>
+          </div>
+
+          {/* Row 4: Pickup Date & Pickup Time */}
+          <div className="grid sm:grid-cols-2 gap-5 mb-5">
             <div>
               <label className="font-body text-xs font-semibold text-foreground mb-1.5 block">
                 <CalendarIcon className="w-3.5 h-3.5 inline mr-1" />
-                Travel Date
+                Pickup Date *
               </label>
               <Popover>
                 <PopoverTrigger asChild>
                   <Button
+                    type="button"
                     variant="outline"
                     className={cn(
                       "w-full h-12 justify-start text-left font-normal rounded-xl border-border bg-muted/50 font-body text-sm",
@@ -205,13 +271,31 @@ const BookingForm = () => {
                     mode="single"
                     selected={travelDate}
                     onSelect={setTravelDate}
-                    disabled={(date) => date < new Date()}
+                    disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
                     initialFocus
                     className={cn("p-3 pointer-events-auto")}
                   />
                 </PopoverContent>
               </Popover>
             </div>
+            <div>
+              <label className="font-body text-xs font-semibold text-foreground mb-1.5 block">
+                <Clock className="w-3.5 h-3.5 inline mr-1" />
+                Pickup Time *
+              </label>
+              <input
+                name="pickup_time"
+                type="time"
+                value={form.pickup_time}
+                onChange={handleChange}
+                required
+                className={inputClass}
+              />
+            </div>
+          </div>
+
+          {/* Row 5: Vehicle Type & Passengers */}
+          <div className="grid sm:grid-cols-2 gap-5 mb-5">
             <div>
               <label className="font-body text-xs font-semibold text-foreground mb-1.5 block">
                 <Car className="w-3.5 h-3.5 inline mr-1" />
@@ -248,34 +332,19 @@ const BookingForm = () => {
             </div>
           </div>
 
-          {/* Row 4: Pickup & Notes */}
-          <div className="grid sm:grid-cols-2 gap-5 mb-5">
-            <div>
-              <label className="font-body text-xs font-semibold text-foreground mb-1.5 block">
-                Pickup Location
-              </label>
-              <input
-                name="pickup_location"
-                value={form.pickup_location}
-                onChange={handleChange}
-                maxLength={200}
-                className={inputClass}
-                placeholder="Hotel name or address"
-              />
-            </div>
-            <div>
-              <label className="font-body text-xs font-semibold text-foreground mb-1.5 block">
-                Special Requests
-              </label>
-              <input
-                name="special_requests"
-                value={form.special_requests}
-                onChange={handleChange}
-                maxLength={500}
-                className={inputClass}
-                placeholder="AC preference, stops, etc."
-              />
-            </div>
+          {/* Row 6: Special Requests */}
+          <div className="mb-7">
+            <label className="font-body text-xs font-semibold text-foreground mb-1.5 block">
+              Special Requests
+            </label>
+            <input
+              name="special_requests"
+              value={form.special_requests}
+              onChange={handleChange}
+              maxLength={500}
+              className={inputClass}
+              placeholder="AC preference, stops, etc."
+            />
           </div>
 
           {/* Submit */}
