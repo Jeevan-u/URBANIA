@@ -356,7 +356,7 @@ const BookingForm = () => {
           </Button>
 
           <p className="text-center font-body text-xs text-muted-foreground mt-4">
-            Your booking will be confirmed within 30 minutes. No advance payment required!
+            Your booking will be confirmed within 30 minutes.
           </p>
         </motion.form>
       </div>
