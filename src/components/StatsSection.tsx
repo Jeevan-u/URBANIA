@@ -3,7 +3,7 @@ import { useRef, useState, useEffect } from "react";
 import { Car, Users, MapPin, CalendarDays } from "lucide-react";
 
 const stats = [
-  { icon: Car, value: 21, suffix: "+", label: "Fleet of Cars" },
+  { icon: Car, value: 200, suffix: "+", label: "Fleet of Cars" },
   { icon: Users, value: 20000, suffix: "+", label: "Happy Customers" },
   { icon: MapPin, value: 42, suffix: "+", label: "Outstation Routes" },
   { icon: CalendarDays, value: 16, suffix: "+", label: "Years in Business" },

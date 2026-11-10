@@ -58,7 +58,7 @@ const FleetSection = () => {
                   <span className="text-lg">🚗</span>
                 </div>
                 <div>
-                  <p className="font-heading text-2xl text-foreground">21+</p>
+                  <p className="font-heading text-2xl text-foreground">200+</p>
                   <p className="font-body text-xs text-muted-foreground">Fleet Cars</p>
                 </div>
               </div>
